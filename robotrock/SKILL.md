@@ -4,7 +4,7 @@ description: Integrates the robotrock npm SDK for human-in-the-loop approvals �
 license: MIT
 metadata:
   author: looplogic
-  version: "1.0.0"
+  version: "1.1.0"
   homepage: https://github.com/quintenb/robotrock/tree/main/packages/sdk
   source: https://github.com/quintenb/robotrock-skills
 ---
@@ -86,6 +86,7 @@ const result = await robotrock.sendToHuman({
 6. **AI tools block in `execute`** until a human acts — set `polling.timeoutMs` or use durable modes.
 7. **Webhook verification:** use `verifyRobotRockWebhook(request)` — do not roll your own crypto.
 8. **`assignTo` is a top-level task field**, not inside `context`.
+9. **`threadId` is a top-level task field**, not inside `context`. Omit it to start a new thread (the server returns one on `task.threadId`); reuse it to group related tasks.
 
 ## What do you need?
 
@@ -93,6 +94,7 @@ const result = await robotrock.sendToHuman({
 |------|-----------|
 | Client setup and env vars | [references/client-setup.md](references/client-setup.md) |
 | `sendToHuman` payloads and assignment | [references/send-to-human.md](references/send-to-human.md) |
+| Group related tasks into threads | [references/task-threads.md](references/task-threads.md) |
 | Block until handled (no webhook) | [references/polling.md](references/polling.md) |
 | HTTP callbacks when handled | [references/webhooks.md](references/webhooks.md) |
 | Rich inbox UI for reviewers | [references/task-context.md](references/task-context.md) |

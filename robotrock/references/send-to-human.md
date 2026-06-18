@@ -31,6 +31,7 @@ await robotrock.sendToHuman({
   },
   actions: [],              // required — at least one action
   idempotencyKey: "key",    // optional — safe retries
+  threadId: "thread_...",   // optional — group related tasks (see task-threads.md)
   assignTo: {               // optional — inbox visibility
     users: ["alice@acme.com"],
     groups: ["finance"],
@@ -39,6 +40,8 @@ await robotrock.sendToHuman({
 ```
 
 `app` and `version` are on `createClient`, not per task.
+
+Omit `threadId` to start a new thread; the server returns one on `task.threadId`. See [task-threads.md](task-threads.md).
 
 ## Actions
 
