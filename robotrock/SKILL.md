@@ -3,7 +3,7 @@ name: robotrock
 description: Integrates the robotrock npm SDK for human-in-the-loop approvals — sendToHuman, webhooks, polling, Trigger.dev, Vercel Workflow, and Vercel AI SDK tools. Use when the user mentions RobotRock, human approval, send to human, HITL, robotrock SDK, approveByHuman, or wiring approval gates into agents/workflows.
 license: MIT
 metadata:
-  author: looplogic
+  author: RobotRock
   version: "1.1.0"
   homepage: https://github.com/quintenb/robotrock/tree/main/packages/sdk
   source: https://github.com/quintenb/robotrock-skills
