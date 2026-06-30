@@ -43,6 +43,10 @@ await robotrock.sendToHuman({
 
 Omit `threadId` to start a new thread; the server returns one on `task.threadId`. See [task-threads.md](task-threads.md).
 
+## Platform terminal actions
+
+After `sendToHuman` resolves (polling) or in webhook handlers, check `actionId` for `robotrock:mark-done` and `robotrock:reject-request`. **Stop the agent** — see [platform-actions.md](platform-actions.md).
+
 ## Actions
 
 Each action requires `id` and `title`. Add JSON Schema for structured reviewer input:

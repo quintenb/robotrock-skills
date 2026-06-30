@@ -76,3 +76,15 @@ if (result.mode === "handled" && result.actionId === "approve") {
   console.log(result.data.ticket); // typed from schema
 }
 ```
+
+## Platform terminal actions
+
+If `result.actionId` is `robotrock:mark-done` or `robotrock:reject-request`, **stop the agent** — see [platform-actions.md](platform-actions.md).
+
+```typescript
+import { shouldStopAgentForHandledAction } from "robotrock";
+
+if (result.mode === "handled" && shouldStopAgentForHandledAction(result.actionId)) {
+  return;
+}
+```

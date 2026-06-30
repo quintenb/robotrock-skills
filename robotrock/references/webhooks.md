@@ -37,6 +37,32 @@ export const robotrock = createClient({
 }
 ```
 
+## Platform terminal actions
+
+Humans can **mark as done** or **reject the request** from the inbox (not your task buttons). Webhook `action.id` values:
+
+- `robotrock:mark-done` — `data: {}`
+- `robotrock:reject-request` — `data: { feedback: string }`
+
+**Stop your agent** when you receive either id. See [platform-actions.md](platform-actions.md).
+
+```typescript
+import {
+  isPlatformTerminalAction,
+  isPlatformRejectRequestAction,
+  parsePlatformRejectRequestData,
+} from "robotrock";
+
+if (isPlatformRejectRequestAction(payload.action.id)) {
+  const { feedback } = parsePlatformRejectRequestData(payload.action.data) ?? { feedback: "" };
+  // abort workflow
+}
+
+if (isPlatformTerminalAction(payload.action.id)) {
+  return NextResponse.json({ ok: true, stopped: true });
+}
+```
+
 ## Next.js route handler
 
 ```typescript

@@ -73,6 +73,37 @@ export async function releaseGate(name: string) {
 }
 ```
 
+## `sendUpdateInWorkflow`
+
+Post a progress update from inside a workflow. Unlike `sendToHumanInWorkflow`, this is **fire-and-forget** — it wraps `client.sendUpdate()` in a `"use step"` (durable + retried) and returns immediately without suspending.
+
+```typescript
+import { sendToHumanInWorkflow, sendUpdateInWorkflow } from "robotrock/workflow";
+
+export async function deploy(version: string) {
+  "use workflow";
+
+  const threadId = `deploy_${version}`;
+
+  await sendUpdateInWorkflow({ threadId, message: "Build started.", status: "running" });
+
+  const result = await sendToHumanInWorkflow({
+    type: "deploy-approval",
+    name: `Deploy ${version}`,
+    threadId,
+    actions: [{ id: "approve", title: "Deploy" }] as const,
+  });
+
+  await sendUpdateInWorkflow({
+    threadId,
+    message: result.actionId === "approve" ? "Deploying." : "Blocked.",
+    status: result.actionId === "approve" ? "succeeded" : "cancelled",
+  });
+}
+```
+
+Accepts `{ threadId, message, status?, app? }`. `status` defaults to `info`. See [updates.md](updates.md) for status values.
+
 ## Webhook security note
 
 `createWebhook()` exposes a public URL at `/.well-known/workflow/v1/webhook/:token`. For stricter control, use `createHook()` + `resumeHook()` from a verified API route after `verifyRobotRockWebhook()`.
@@ -96,4 +127,5 @@ See [vercel-ai.md](vercel-ai.md) for tool approval bridge with `mode: "workflow"
 |------------|--------------|------------------|
 | `createWebhook()` | No | Yes |
 | `sendToHumanInWorkflow` | No (call from workflow) | Yes |
+| `sendUpdateInWorkflow` | No (call from workflow) | Yes |
 | `approveByHumanTool({ mode: "workflow" })` | No | Yes |

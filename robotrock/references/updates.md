@@ -78,3 +78,58 @@ await robotrock.sendUpdate({ threadId, message: "Export running.", status: "runn
 // ... later
 await robotrock.sendUpdate({ threadId, message: "Export complete.", status: "succeeded" });
 ```
+
+## Integrations
+
+`sendUpdate` is fire-and-forget (no human wait), so each integration wraps it differently than `sendToHuman`.
+
+### Vercel Workflow — `sendUpdateInWorkflow`
+
+Network calls inside a `"use workflow"` function must run in a step. `sendUpdateInWorkflow()` is a durable, retried step. It returns immediately (does not suspend).
+
+```typescript
+import { sendUpdateInWorkflow } from "robotrock/workflow";
+
+export async function deploy(version: string) {
+  "use workflow";
+  const threadId = `deploy_${version}`;
+  await sendUpdateInWorkflow({ threadId, message: "Build started.", status: "running" });
+  // ... sendToHumanInWorkflow(...) etc.
+}
+```
+
+### Vercel AI SDK — `createSendUpdateTool`
+
+Let an agent post progress to the thread it works on. The thread is resolved from the tool input `threadId`, falling back to a session `threadId` in the options — pass at least one.
+
+```typescript
+import { createSendUpdateTool } from "robotrock/ai";
+
+// Polling client + session thread fallback
+const sendUpdate = createSendUpdateTool(robotrock, { threadId: "thread_123" });
+
+// Durable modes: pass a context instead of a client
+const sendUpdateTrigger = createSendUpdateTool({ mode: "trigger", app: "my-agent" });
+const sendUpdateWorkflow = createSendUpdateTool({ mode: "workflow", app: "my-agent" });
+```
+
+Auto-thread tasks and updates by giving both tools a shared session thread:
+
+```typescript
+import { createRobotRockAiTools } from "robotrock/ai";
+
+const tools = createRobotRockAiTools({ client: robotrock, threadId: "session_42" });
+// tools.sendToHuman({ actions }) creates tasks on session_42
+// tools.sendUpdate() posts updates to session_42 (model may override with its own threadId)
+```
+
+### Trigger.dev
+
+No wrapper needed — `sendUpdate` returns immediately (no wait token). Call the SDK directly inside any task:
+
+```typescript
+import { createClient } from "robotrock";
+
+const robotrock = createClient({ apiKey: process.env.ROBOTROCK_API_KEY! });
+await robotrock.sendUpdate({ threadId, message: "Job running.", status: "running" });
+```

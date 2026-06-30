@@ -97,6 +97,38 @@ const askHuman = createSendToHumanTool(robotrock, {
 });
 ```
 
+### `createSendUpdateTool`
+
+Lets the agent post progress updates to the thread it is working on. **Fire-and-forget** — no human wait. The thread is resolved from the model-supplied `threadId`, falling back to a session `threadId` in the options; provide at least one.
+
+```typescript
+import { createSendUpdateTool } from "robotrock/ai";
+
+// Polling client + session thread fallback (model may override with its own threadId)
+const sendUpdate = createSendUpdateTool(robotrock, { threadId: "thread_123" });
+
+// Durable modes: pass a context object instead of a client
+const sendUpdateTrigger = createSendUpdateTool({ mode: "trigger", app: "my-agent" });
+const sendUpdateWorkflow = createSendUpdateTool({ mode: "workflow", app: "my-agent" });
+```
+
+Tool input: `{ threadId?, message, status? }`. `status` is one of `info | queued | running | waiting | succeeded | failed | cancelled` (default `info`).
+
+Auto-thread tasks and updates with `createRobotRockAiTools({ ..., threadId })` — the shared `threadId` is applied to both `sendToHuman` (created tasks) and `sendUpdate` (updates):
+
+```typescript
+const tools = createRobotRockAiTools({ client: robotrock, threadId: "session_42" });
+
+const result = await generateText({
+  model: "anthropic/claude-sonnet-4",
+  tools: {
+    sendToHuman: tools.sendToHuman({ actions: [{ id: "ack", title: "Acknowledge" }] as const }),
+    sendUpdate: tools.sendUpdate(),
+  },
+  prompt: "Work the task and post progress updates as you go.",
+});
+```
+
 ## Trigger.dev mode
 
 Register SDK tasks (see [trigger.md](trigger.md)):
