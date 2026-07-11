@@ -1,6 +1,6 @@
 # robotrock-skills
 
-Agent skill for integrating the [robotrock](https://www.npmjs.com/package/robotrock) npm SDK — human-in-the-loop approvals for scripts, webhooks, Trigger.dev, Vercel Workflow, and Vercel AI SDK agents.
+Agent skill for integrating the [robotrock](https://www.npmjs.com/package/robotrock) npm SDK — human-in-the-loop approvals for scripts, webhooks, Trigger.dev, Vercel Workflow, Vercel AI SDK agents, and Eve dashboard chat agents.
 
 ## Install
 

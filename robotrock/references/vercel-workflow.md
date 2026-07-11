@@ -129,3 +129,9 @@ See [vercel-ai.md](vercel-ai.md) for tool approval bridge with `mode: "workflow"
 | `sendToHumanInWorkflow` | No (call from workflow) | Yes |
 | `sendUpdateInWorkflow` | No (call from workflow) | Yes |
 | `approveByHumanTool({ mode: "workflow" })` | No | Yes |
+
+## OpenTelemetry
+
+Set `ROBOTROCK_OTEL_RECORD_HANDLED=true` or pass `recordOtel: true` on the workflow payload. The SDK records human decisions on the workflow run trace and auto-fills `agent` telemetry at task create unless you pass `agent` explicitly.
+
+See [opentelemetry.md](opentelemetry.md).

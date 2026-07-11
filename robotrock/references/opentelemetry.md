@@ -1,74 +1,59 @@
-# OpenTelemetry + RobotRock feedback loop
+# OpenTelemetry trace recording (Trigger.dev / Vercel Workflow)
 
-RobotRock does not ingest OTLP. Export full traces to your observability stack and snapshot compact telemetry on `sendToHuman`.
+RobotRock does **not** ingest OTLP or store OpenTelemetry snapshots. Human feedback analysis uses **agent version** and task context only.
 
-## Dual export
-
-1. **Full traces** → OTel collector (Jaeger, Datadog, Trigger.dev dashboard, etc.)
-2. **Compact snapshot** → `agent` field on `sendToHuman` → Statistics + feedback analysis
-
-## SDK helper
+For durable integrations, you can still record human-handle events on **your agent's active OTel trace**:
 
 ```bash
 bun add robotrock @opentelemetry/api
+export ROBOTROCK_OTEL_RECORD_HANDLED=true
+export AGENT_VERSION=1.2.0
 ```
 
+## Trigger.dev + Vercel Workflow
+
 ```typescript
-import { createClient, agentTelemetryFromOtel } from "robotrock";
+import { sendToHumanTask } from "robotrock/trigger";
+// or: sendToHumanInWorkflow from "robotrock/workflow"
 
-const runStartedAt = Date.now();
-// ... instrumented agent work ...
-
-await robotrock.sendToHuman({
+await sendToHumanTask.triggerAndWait({
   type: "deploy-approval",
   name: "Approve production deploy",
   actions: [
     { id: "approve", title: "Approve" },
     { id: "reject", title: "Reject" },
   ],
-  agent: agentTelemetryFromOtel({
-    version: process.env.AGENT_VERSION,
-    runStartedAt,
-    toolCalls: { grep: 4, readFile: 2 },
-    cost: { tokens: { total: 5000 } },
-    extraInfo: { model: "claude-sonnet-4" },
-    otel: {
-      spans: [
-        { name: "tool.grep", durationMs: 100, status: "ok" },
-        { name: "tool.readFile", durationMs: 50, status: "error" },
-      ],
-    },
-  }),
+  recordOtel: true, // or rely on ROBOTROCK_OTEL_RECORD_HANDLED
 });
 ```
 
-`agentTelemetryFromOtel()` fills:
+When enabled, the SDK:
 
-- `agent.version`, `agent.toolCalls`, `agent.cost` from your options
-- `agent.info.traceId`, `spanId`, `durationMs`, `errorCount`
-- `agent.otel` structured span summary (`traceId`, `rootDurationMs`, `spans`)
+1. Starts child span `robotrock.wait_for_human`
+2. On human handle, sets `robotrock.action.id`, `robotrock.handled_by`, `robotrock.human_wait_ms`, and event `robotrock.task_handled`
+3. On timeout, ends the wait span with `robotrock.outcome=timeout`
 
-Optional: `toolCallsFromOtelSpans(spans)` to derive `toolCalls` from span names.
-
-## MCP improvement loop
-
-Before changing agent code:
-
-1. Call `get_feedback_analysis` with the same `app` and `type` as `send_to_human`
-2. When `status` is `completed` and `isHealthy` is `false`, apply `agentInstructions`
-3. Trigger new analyses from RobotRock dashboard → Statistics → Analyze feedback
-
-The analysis LLM correlates human action data (`handled.action.id`, feedback form fields) with agent telemetry (version, cost, tool calls, OTel duration/errors) to produce concrete improvement instructions.
-
-## Trigger.dev
-
-Trigger.dev exports OTel to its platform automatically but does **not** fill RobotRock `agent`. Pass `agent` on your `sendToHumanTask` payload or wrap the SDK call:
+Manual recording (any integration):
 
 ```typescript
-import { agentTelemetryFromOtel } from "robotrock";
+import {
+  captureRobotRockOtelHandle,
+  startRobotRockHumanWaitSpan,
+  endRobotRockHumanWaitSpan,
+} from "robotrock";
+```
 
-await client.sendToHuman({
-  ...taskInput,
-  agent: agentTelemetryFromOtel({ version: process.env.AGENT_VERSION, runStartedAt }),
+Action feedback (`action.data`) is **not** written to spans unless `otelIncludeActionData: true`.
+
+## Agent version for feedback analysis
+
+Set the agent release on the client (not OTel):
+
+```typescript
+export const robotrock = createClient({
+  app: "my-service",
+  version: process.env.AGENT_VERSION,
 });
 ```
+
+RobotRock stores `agent.version` for Statistics and weekly feedback analysis. See `get_feedback_analysis` (MCP) before improving agent code.

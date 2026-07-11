@@ -101,6 +101,12 @@ export const releaseGate = task({
 
 Fixed actions: `approve` / `decline`.
 
+## OpenTelemetry
+
+Set `ROBOTROCK_OTEL_RECORD_HANDLED=true` or pass `recordOtel: true` on the task payload. The SDK records human decisions on the Trigger run trace (`robotrock.wait_for_human` span, `robotrock.task_handled` event) and auto-fills `agent` telemetry at task create unless you pass `agent` explicitly.
+
+See [opentelemetry.md](opentelemetry.md).
+
 ## Wait duration
 
 Wait token timeout follows `validUntil` on the task. Default: **one week** when `validUntil` is omitted.

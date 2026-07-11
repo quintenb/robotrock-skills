@@ -1,10 +1,10 @@
 ---
 name: robotrock
-description: Integrates the robotrock npm SDK for human-in-the-loop approvals — sendToHuman, webhooks, polling, Trigger.dev, Vercel Workflow, and Vercel AI SDK tools. Use when the user mentions RobotRock, human approval, send to human, HITL, robotrock SDK, approveByHuman, or wiring approval gates into agents/workflows.
+description: Integrates the robotrock npm SDK for human-in-the-loop approvals — sendToHuman, webhooks, polling, Trigger.dev, Vercel Workflow, Vercel AI SDK tools, and Eve dashboard chat agents. Use when the user mentions RobotRock, human approval, send to human, HITL, robotrock SDK, approveByHuman, Eve + RobotRock, or wiring approval gates into agents/workflows.
 license: MIT
 metadata:
   author: RobotRock
-  version: "1.4.0"
+  version: "1.5.0"
   homepage: https://github.com/quintenb/robotrock/tree/main/packages/sdk
   source: https://github.com/quintenb/robotrock-skills
 ---
@@ -19,6 +19,26 @@ Integrate the `robotrock` npm package for human-in-the-loop approval workflows.
 - Pause AI agents until a person reviews a plan or tool call
 - Collect structured form data from reviewers (JSON Schema actions)
 - Durable waits in Trigger.dev or Vercel Workflow without holding HTTP connections
+- Eve agents that chat in the RobotRock inbox (dashboard HITL, inbox delegation)
+
+## Eve agents (dashboard chat)
+
+Eve has **no** `npx eve init robotrock` template — only `npx eve init my-agent`. Make an agent RobotRock-ready with SDK re-exports from `robotrock/eve/agent` and `robotrock/eve/tools`.
+
+**Full guide:** [references/eve.md](references/eve.md)
+
+```bash
+npx eve init my-agent && cd my-agent && bun add robotrock eve
+```
+
+```typescript
+// agent/hooks/robotrock-ready.ts
+export { robotrockReadyHook as default } from "robotrock/eve/agent";
+
+// agent/channels/eve.ts
+import { robotrockEveChannel } from "robotrock/eve/agent";
+export default robotrockEveChannel({ auth: [] }); // add existing webapp auth if dual-use
+```
 
 ## Prerequisites
 
@@ -73,13 +93,14 @@ const result = await robotrock.sendToHuman({
 | Trigger.dev background task | `robotrock/trigger` | Wait tokens via `triggerAndWait()` |
 | Vercel Workflow | `robotrock/workflow` | `createWebhook()` + suspend |
 | Vercel AI SDK agent | `robotrock/ai` | Polling, or durable `mode: "trigger"` / `mode: "workflow"` |
+| Eve agent (RobotRock inbox chat) | `robotrock/eve/agent`, `robotrock/eve/tools` | Native Eve HITL + optional inbox delegation |
 
 **Decision rule:** If the runtime is short-lived serverless (Vercel function < 60s), do **not** poll in-process — use Trigger.dev or Vercel Workflow.
 
 ## Critical gotchas
 
 1. **`webhook` and `polling` are mutually exclusive** on `createClient()` — TypeScript enforces one mode.
-2. **`app` and `version` belong on the client**, not on individual `sendToHuman()` calls.
+2. **`app` and `version` belong on the client** — `version` is the agent release (semver, SHA, tag). Override per task with `sendToHuman({ version })`. Task context wire format is `advanced.contextVersion` (default `2`).
 3. **Webhooks/handlers are configured on the client**, not per task or per action input.
 4. **Trigger.dev:** always check `waitResult.ok` before accessing `waitResult.output`.
 5. **Trigger.dev:** never use `Promise.all` with `triggerAndWait()` or `wait.*` calls.
@@ -89,7 +110,7 @@ const result = await robotrock.sendToHuman({
 9. **`threadId` is a top-level task field**, not inside `context`. Omit it to start a new thread (the server returns one on `task.threadId`); reuse it to group related tasks.
 10. **Updates are thread-scoped.** Use `client.sendUpdate({ threadId, message, status? })` for an existing thread, or pass `update: { message, status? }` to `sendToHuman`. `status` defaults to `info`; valid values are `info | queued | running | waiting | succeeded | failed | cancelled`.
 11. **Updates are fire-and-forget** (no human wait), so integrations differ from `sendToHuman`: Vercel Workflow has `sendUpdateInWorkflow` (durable step), Vercel AI has `createSendUpdateTool`, and Trigger.dev needs no wrapper — call `client.sendUpdate()` directly inside a task.
-12. **Pass `agent` telemetry on every `sendToHuman`** when the agent is OpenTelemetry-instrumented — use `agentTelemetryFromOtel()` so feedback analysis can correlate runtime traces with human decisions.
+12. **Set `version` on `createClient`** (or `AGENT_VERSION` env) so feedback analysis can compare human feedback across deploys.
 13. **Call `get_feedback_analysis` (MCP) before improving agent code** — use the same `app` and `type` as `sendToHuman`; apply `agentInstructions` when `isHealthy` is false.
 14. **Always handle platform terminal actions** — when `handled.action.id` is `robotrock:mark-done` or `robotrock:reject-request`, **stop the agent** (use `isPlatformTerminalAction` / `shouldStopAgentForHandledAction` from `robotrock`). These are inbox escape hatches, not your task's approve/reject ids.
 
@@ -109,11 +130,13 @@ const result = await robotrock.sendToHuman({
 | Trigger.dev durable waits | [references/trigger.md](references/trigger.md) |
 | Vercel Workflow durable waits | [references/vercel-workflow.md](references/vercel-workflow.md) |
 | Vercel AI SDK tools and approval bridge | [references/vercel-ai.md](references/vercel-ai.md) |
+| Eve dashboard chat agents | [references/eve.md](references/eve.md) |
 
 ## Companion skills
 
 When the user is also setting up the host framework, load the relevant framework skill:
 
+- **Eve** → `eve` (`npx skills add` or `node_modules/eve/docs/`)
 - **Trigger.dev** → `trigger-tasks`, `trigger-setup` (`npx skills add triggerdotdev/skills`)
 - **Vercel Workflow** → `workflow` (`npx skills add vercel/workflow`)
 
@@ -121,19 +144,21 @@ When the user is also setting up the host framework, load the relevant framework
 
 | Import | Use for |
 |--------|---------|
-| `robotrock` | `createClient`, `sendToHuman`, `sendUpdate`, `getTask`, `cancelTask`, `agentTelemetryFromOtel`, webhook verification |
-| `robotrock/otel` | `agentTelemetryFromOtel`, `toolCallsFromOtelSpans` (same as main export) |
+| `robotrock` | `createClient`, `sendToHuman`, `sendUpdate`, `getTask`, `cancelTask`, OTel trace helpers, webhook verification |
 | `robotrock/trigger` | `sendToHumanTask`, `approveByHumanTask` |
 | `robotrock/workflow` | `sendToHumanInWorkflow`, `approveByHumanInWorkflow`, `sendUpdateInWorkflow` |
 | `robotrock/ai` | `approveByHumanTool`, `createSendToHumanTool`, `createSendUpdateTool`, tool-approval bridge |
 | `robotrock/ai/trigger` | AI tools with `mode: "trigger"` |
 | `robotrock/ai/workflow` | AI tools with `mode: "workflow"` |
+| `robotrock/eve` | Dashboard bridge helpers (input mapping, resume messages) |
+| `robotrock/eve/agent` | Eve channel, hooks, session client, task APIs |
+| `robotrock/eve/tools` | Standard Eve tool factories (`inbox/`, `identity/`) |
 
 ## Implementation checklist
 
 When integrating RobotRock into a project:
 
-- [ ] Install `robotrock` (and peers: `@trigger.dev/sdk`, `workflow`, or `ai` as needed)
+- [ ] Install `robotrock` (and peers: `@trigger.dev/sdk`, `workflow`, `ai`, or `eve` as needed)
 - [ ] Create `lib/robotrock.ts` with `createClient`
 - [ ] Set `ROBOTROCK_API_KEY` in environment
 - [ ] Pick integration path (polling / webhook / trigger / workflow / ai)
@@ -142,5 +167,6 @@ When integrating RobotRock into a project:
 - [ ] For Trigger.dev: re-export SDK tasks from `trigger/robotrock.ts`
 - [ ] For Workflow: call `sendToHumanInWorkflow` from `"use workflow"` functions
 - [ ] Handle `TaskExpiredError` / `TaskTimeoutError` when polling
-- [ ] Pass `agent` telemetry via `agentTelemetryFromOtel()` when using OpenTelemetry
+- [ ] Pass agent `version` on `createClient` (or per `sendToHuman`) for feedback analysis
 - [ ] Call `get_feedback_analysis` before agent code improvements (MCP or Statistics dashboard)
+- [ ] **Eve agents:** follow [references/eve.md](references/eve.md) (hook, channel, optional audit + tools)
